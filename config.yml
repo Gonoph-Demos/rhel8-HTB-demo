@@ -1,0 +1,100 @@
+---
+# vim: ts=2 sw=2 ai expandtab
+
+- name: Configure instances
+  hosts: rhel
+  connection: smart
+  gather_facts: true
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+  become: true
+  tasks:
+    - name: update system if needed
+      dnf:
+        name: "*"
+        state: latest
+      when: rhel_updates
+
+    - name: check if needed packages were installed
+      dnf:
+        name: "{{ rhel_install | last }}"
+        state: installed
+      register: dnf_result
+
+    - name: install needed packages
+      dnf:
+        name: "{{ item.item }}"
+        state: installed
+      with_items: "{{ rhel_install | json_query(query) }}"
+      vars:
+        query: '[*].{"item": @}'
+      when: dnf_result is changed
+
+    - name: set SE booleans for containers
+      seboolean:
+        name: "{{ item }}"
+        state: yes
+        persistent: yes
+      with_items: "{{ sebools }}"
+
+    - name: enable needed services
+      ignore_errors: true
+      systemd:
+        name: "{{ item }}"
+        state: started
+        enabled: true
+      with_items:
+        - cockpit.socket
+        - lorax-composer.socket
+        - firewalld
+
+    - name: firewall rules
+      firewalld:
+        service: "{{ item }}"
+        permanent: yes
+        state: enabled
+      with_items:
+        - cockpit
+
+    - name: copy demo-container
+      become: false
+      copy:
+        src: demo-container
+        dest: ~/
+        force: false
+
+    - name: login into registry.redhat.io
+      command: "/usr/bin/podman login -u {{ rhel_login }} -p {{ rhel_pass }} registry.redhat.io"
+      args:
+        creates: /run/containers/0/auth.json
+
+    - name: copy vimrc for root
+      copy:
+        remote_src: true
+        src: /usr/share/vim/vim80/vimrc_example.vim
+        dest: "~{{ item }}/.vimrc"
+        owner: "{{ item }}"
+        group: "{{ item }}"
+      with_items:
+        - root
+        - gonoph
+
+    - name: copy files to server
+      synchronize:
+        src: ./files/
+        dest: ~/
+        recursive: true
+        times: true
+
+    - name: have podman pull down image
+      command: "/usr/bin/podman pull registry.redhat.io/rhel8-beta/rhel-init:latest"
+
+    - name: create base image
+      become: false
+      command: "make -C ~/demo-container base"
+
+    - name: ensure overcommit is on
+      sysctl:
+        name: vm.overcommit_memory
+        value: 1
+        state: present

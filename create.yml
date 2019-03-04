@@ -1,0 +1,129 @@
+---
+# vim: ts=2 sw=2 ai expandtab
+
+- name: Create instances
+  hosts: ovirt
+  connection: local
+  gather_facts: false
+  handlers:
+    - name: Wait for SSH to come up
+      wait_for:
+        host: "{{ ansible_host }}"
+        port: 22
+        # delay: 10
+        timeout: 320
+        state: started
+      delegate_to: "{{ ansible_delegate }}"
+  tasks:
+    - name: Login to oVirt manager
+      ovirt_auth:
+        url: "{{ ovirt_url }}"
+        username: "{{ ovirt_user }}"
+        password: "{{ ovirt_pass }}"
+        insecure: "{{ ovirt_insecure }}"
+      when: ovirt_auth is not defined
+      run_once: True
+      delegate_to: "{{ ansible_delegate }}"
+
+    - name: Create VMs
+      delegate_to: "{{ ansible_delegate }}"
+      ovirt_vms:
+        auth: "{{ ovirt_auth }}"
+        name: "{{ inventory_hostname }}"
+        template: "{{ vm_template }}"
+        cluster: "{{ vm_cluster }}"
+        memory: "{{ vm_memory }}"
+        memory_guaranteed: "{{ vm_memory_guaranteed }}"
+        high_availability: false
+        clone: false
+        operating_system: other_linux
+        boot_devices: [ hd ]
+        type: server
+        state: running
+        nics: [] #          - name: rhevm profile_name: rhevm
+        cloud_init_persist: false
+        graphical_console:
+          headless_mode: false
+          protocol: vnc
+        cloud_init:
+          nic_boot_protocol: static
+          nic_ip_address: "{{ ip | ipaddr('address') }}"
+          nic_netmask: "{{ ip | ipaddr('netmask') }}"
+          nic_gateway: "{{ gateway }}"
+          nic_name: "{{ vm_nic_name }}"
+          nic_on_boot: true
+          dns_servers: "{{ dns }}"
+          dns_search: "{{ dns_search }}"
+          host_name: "{{ inventory_hostname }}.{{ dns_domain }}"
+          user_name: "{{ user_name }}"
+          root_password: "{{ user_password }}"
+          authorized_ssh_keys: |
+            ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAgQC/Rd88j8xBpxFoo5GFoK7OUPbrcbY2HkseqpdKpt/oueWNg3pQn0yD9nuWVv/M/KqvPv0n0nMQ4tmxVkOcF8wDkl9Vz36FxK1x/iORvzu28H3Bo+BPSdko6u7rSI/0r61sIF78TPuD61ATotB3WuJq/HFGKPq371+V6rSmY0fQ0w== flushy@0e6ae2059c9c
+            ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDu5ZIThBEklmwlLANPDAS7XtU952pxDTCBtiChSNOLo7QXzSqM4wR48mn4CHGXOcfI9FdNMFtewbK6GLCLMRfNyrSXzzZiwDXEKQ9GRzLnnXFDIj/j+AHTdUgTZFJBJjT+QfxJU3iBpr3eS7bmb4UzYXEVPyurKoHvVzDqwKjzvK0eYLorkzanglGqWsP3YWS6oDySBqCuruV4+KMZHrPIxutkrEgA48vWggzN/lH3upTdymQPZn326BsMm+aefBfnCdWmYuCB9jHXhSZFffeKP6CgKPFHmbGUl935UwcOC5dpO7R8p9uOOjmUqbKxlI3aTTD2UjP3tBbAjwq6/IoP gonoph@macdog.local
+          custom_script: |
+            yum_repos:
+              htb-baseos:
+                baseurl: http://zfs1.virt.gonoph.net/pulp/content/htb/rhel8/8/x86_64/baseos/os
+                enabled: true
+                failovermethod: priority
+                gpgcheck: true
+                gpgkey: file:///etc/pki/rpm-gpg/RPM-GPG-KEY-redhat-beta,file:///etc/pki/rpm-gpg/RPM-GPG-KEY-redhat-release
+                name: RHEL 8 HTB BaseOS
+              htb-appstream:
+                baseurl: http://zfs1.virt.gonoph.net/pulp/content/htb/rhel8/8/x86_64/appstream/os
+                enabled: true
+                failovermethod: priority
+                gpgcheck: true
+                gpgkey: file:///etc/pki/rpm-gpg/RPM-GPG-KEY-redhat-beta,file:///etc/pki/rpm-gpg/RPM-GPG-KEY-redhat-release
+                name: RHEL 8 HTB Appstream
+            ca-certs:
+              trusted:
+                - |
+                  -----BEGIN CERTIFICATE-----
+                  MIIC4jCCAkugAwIBAgIJAI7NJN2qMdfBMA0GCSqGSIb3DQEBBQUAMIGJMQswCQYD
+                  VQQGEwJVUzEQMA4GA1UECAwHRmxvcmlkYTETMBEGA1UECgwKR29ub3BoLk5ldDEQ
+                  MA4GA1UECwwHZ2FtZWRvZzEgMB4GA1UEAwwXZ2FtZWRvZy5ob21lLmdvbm9waC5u
+                  ZXQxHzAdBgkqhkiG9w0BCQEWEGJpbGx5QGdvbm9waC5uZXQwHhcNMTQxMDEwMDMz
+                  NTA1WhcNMjQxMDA3MDMzNTA1WjCBiTELMAkGA1UEBhMCVVMxEDAOBgNVBAgMB0Zs
+                  b3JpZGExEzARBgNVBAoMCkdvbm9waC5OZXQxEDAOBgNVBAsMB2dhbWVkb2cxIDAe
+                  BgNVBAMMF2dhbWVkb2cuaG9tZS5nb25vcGgubmV0MR8wHQYJKoZIhvcNAQkBFhBi
+                  aWxseUBnb25vcGgubmV0MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQClP43Q
+                  77t2TH6iHab5r4j+AL4+sNxH3NV1Dz31FgLC9czi9Pf1ROr7FwGS0GgZAIUqoT4A
+                  oskcPnrtMCFWVU/38j+k/9oNEoXBPkcHBzKdfDPUMw/Oa0T1BDtpnx7isbF2ZnQy
+                  ajbp8iGz8BTfS5Y/lNqlIAT3w5ZtkoTb4Z8unwIDAQABo1AwTjAdBgNVHQ4EFgQU
+                  k3tiy67dZuNnpJ60gt5UF9a7Op4wHwYDVR0jBBgwFoAUk3tiy67dZuNnpJ60gt5U
+                  F9a7Op4wDAYDVR0TBAUwAwEB/zANBgkqhkiG9w0BAQUFAAOBgQBni4CcCK5QlTVT
+                  NzIkednqO3Zp+8nTzIQnitnWyokOkYlqrCvTPCrnQqWM4WR/OGZqIsjyWt6SMOzl
+                  qAZ5HGg5enOwoX5/eEZ9jR+oy/kHXpNXgcozeZ0lY3Hn7aWFLkoO6g3OwUyZ3DNX
+                  CJEuIdKu/6mMPctaFhzeIP6AmE71Vg==
+                  -----END CERTIFICATE-----
+            runcmd:
+              - [ touch, "/etc/cloud/cloud-init.disabled" ]
+              - |
+                set $(ip route | grep ^default)
+                DEV=$5
+                ID=$(nmcli -t c | grep ens3 | cut -d: -f 1)
+                nmcli c modify $DEV ipv4.method static -ipv4.addresses '' ipv4.addresses {{ ip }} ipv4.gateway {{ gateway }} -ipv4.dns '' ipv4.dns {{ dns }} -ipv4.dns-search '' ipv4.dns-search {{ dns_search }}
+                ifdown $DEV ; ifup $DEV
+              -  echo "Cloud-Init complete" | tee -a /etc/issue
+        wait: false
+      register: vm_created
+      until: vm_created is successful
+      retries: 10
+      delay: 6
+      notify: Wait for SSH to come up
+
+    - meta: flush_handlers
+
+    - name: check that system has python
+      connection: smart
+      ping:
+      ignore_errors: true
+      register: ping_result
+      vars:
+        ansible_python_interpreter: /usr/bin/python2
+
+    - name: ensure python is loaded
+      connection: smart
+      raw: sudo dnf install python2 python3 -y
+      when: ping_result is failed

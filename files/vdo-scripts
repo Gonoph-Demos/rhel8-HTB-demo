@@ -1,0 +1,115 @@
+#!/bin/sh
+
+create() {
+
+(
+clear
+set -e
+
+truncate --size=5G l1
+truncate --size=5G l2
+losetup -f l1
+losetup -f l2
+
+vdo create -n vdo --device /dev/loop0 --vdoLogicalSize 5G
+pvcreate /dev/mapper/vdo
+vgcreate vdo /dev/mapper/vdo
+lvcreate -n vdo vdo -L 512M
+lvcreate --thin -n thinpool vdo -L 512M
+lvcreate -T --thinpool vdo/thinpool -n thin -V 512M
+
+pvcreate /dev/loop1 
+vgcreate norm /dev/loop1
+lvcreate -n norm norm -L 512M
+lvcreate --thin -n thinpool norm -L 512M
+lvcreate -T --thinpool norm/thinpool -n thin -V 512M
+
+mkfs.xfs /dev/vdo/vdo
+mkfs.xfs /dev/vdo/thin
+mkfs.xfs /dev/norm/norm
+mkfs.xfs /dev/norm/thin
+
+mkdir -p /mnt/{vdo,vdo-thin,norm,norm-thin}
+
+mount /dev/vdo/vdo /mnt/vdo
+mount /dev/vdo/thin /mnt/vdo-thin
+mount /dev/norm/norm /mnt/norm
+mount /dev/norm/thin /mnt/norm-thin
+
+)
+
+}
+
+cleanit() {
+
+umount /mnt/*
+
+vgremove -f vdo
+vgremove -f norm
+
+pvremove /dev/mapper/vdo
+pvremove /dev/loop1
+
+vdo remove -n vdo
+
+losetup -d /dev/loop0
+losetup -d /dev/loop1
+
+rm -fv l1 l2 
+
+rmdir /mnt/*
+
+}
+
+line() {
+	if [ "x$_LINE" != x ] ; then
+		echo $LINE
+		return
+	fi
+	set $(stty size);
+	local LINE=$( python2 -c "print '#' * $2" );
+	echo $LINE;
+}
+
+stats() {
+	set +x
+	line
+	du -sh /root/l{1,2}
+	lvs
+	vdostats
+	line
+}
+
+test() {
+(
+line
+echo "Create Random 100M payload"
+dd if=/dev/urandom bs=1M count=100 of=t > /dev/null 2>&1
+echo "Create compressible 100M payload of A's"
+(dd if=/dev/zero bs=1M count=100 | tr '\0' 'A' > tt ) 2> /dev/null
+line
+
+echo "Removing old files"
+rm -f /mnt/*/*
+
+for i in vdo vdo-thin norm norm-thin ; do
+	line
+	echo "Filling up $i volume"
+	for ii in 1 2 3 ; do
+		echo "Adding in 100M random and zero payloads to file $i"
+		/bin/cp t /mnt/$i/rand$ii 2>/dev/null
+		/bin/cp tt /mnt/$i/zero$ii 2>/dev/null
+	done
+done
+sync
+stats
+)
+}
+
+disablededup() {
+	vdo disableDeduplication -n vdo
+}
+
+disablecompression() {
+	vdo disableCompression -n vdo
+}

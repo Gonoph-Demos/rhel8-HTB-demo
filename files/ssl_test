@@ -1,0 +1,43 @@
+#!/bin/sh
+
+TYPE=$1
+KEY=$2
+
+test -z "$TYPE" && TYPE=help
+test -z "$KEY" && KEY=1024
+
+T=$(mktemp -d)
+
+cd $T
+eval "trap 'rm -rf $T' EXIT"
+
+server() {
+	eval "trap 'rm -rf $T /tmp/ca.crt' EXIT"
+	set -x -e
+
+	git clone -b v3.0.6 https://github.com/OpenVPN/easy-rsa.git
+	cd ./easy-rsa/easyrsa3
+
+	./easyrsa init-pki
+	./easyrsa --keysize=$KEY build-ca nopass
+	./easyrsa build-server-full localhost nopass
+
+	rm -f /tmp/ca.crt
+	cp ./pki/ca.crt /tmp/ca.crt
+	cp ./pki/issued/localhost.crt server.pem
+	cat ./pki/private/localhost.key >> server.pem
+
+	openssl s_server -accept 4443 -www
+}
+
+client() {
+	set -x -e
+	curl --cacert /tmp/ca.crt https://localhost:4443
+}
+
+help() {
+	echo "Usage: $0 (server|client) [RSA key size (default: 1024)]"
+	exit 1
+}
+
+$TYPE

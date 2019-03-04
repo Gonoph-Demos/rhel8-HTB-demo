@@ -1,0 +1,29 @@
+---
+# vim: ts=2 sw=2 ai expandtab
+
+rhel_updates: false
+
+sebools:
+  - container_manage_cgroup
+
+rhel_install:
+  - tmux
+  - bcc-tools
+  - bind-utils
+  - buildah
+  - docker
+  - git
+  - kmod-kvdo
+  - lvm2
+  - make
+  - mtr
+  - podman
+  - procps-ng
+  - skopeo
+  - vdo
+  - vim
+  - lorax-composer
+  - composer-cli
+  - cockpit-composer
+  - boom-boot
+  - firewalld

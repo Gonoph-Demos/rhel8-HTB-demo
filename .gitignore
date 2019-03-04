@@ -1,0 +1,3 @@
+group_vars/ovirt/99-enc.yml
+*~
+*.retry
