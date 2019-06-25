@@ -1,0 +1,15 @@
+---
+# vim: sw=2 ai ts=2 expandtab
+plugin: aws_ec2
+regions:
+  - us-east-1
+keyed_groups:
+  - key: tags.Group
+    prefix: ''
+    separator: ''
+compose:
+  ansible_host: public_ip_address
+hostnames:
+  - tag:Name
+filters:
+  tag:demokey: Ly4mZ6NiCARTLr7f

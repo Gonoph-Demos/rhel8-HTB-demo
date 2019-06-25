@@ -27,3 +27,6 @@ rhel_install:
   - cockpit-composer
   - boom-boot
   - firewalld
+
+
+ansible_ssh_common_args: '-o StrictHostKeyChecking=no'

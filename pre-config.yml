@@ -1,0 +1,35 @@
+---
+# vim: ts=2 sw=2 ai expandtab
+
+- name: pre-configure instances
+  hosts: rhel
+  connection: smart
+  gather_facts: false
+  become: true
+  tasks:
+    - name: check that system has python
+      raw: test -x /usr/bin/python3
+      ignore_errors: true
+      register: ping_result
+
+    - name: ensure python is loaded
+      raw: sudo dnf install python2 python3 -y
+      when: ping_result is failed
+
+    - name: create my own user
+      user:
+        name: gonoph
+        comment: Gonoph User
+        group: wheel
+        append: yes
+        password: "{{ gonoph_pass }}"
+
+    - name: ensure my user has ssh keys
+      authorized_key:
+        user: gonoph
+        state: present
+        key: "{{ lookup('file', item ) }}"
+      with_items:
+        - /Users/flushy/.ssh/id_rsa.ansible.pub
+        - /Users/flushy/.ssh/id_rsa.pub
+        - /Users/flushy/.ssh/id_rsa.summit.pub

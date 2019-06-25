@@ -64,6 +64,7 @@
         force: false
 
     - name: login into registry.redhat.io
+      no_log: true
       command: "/usr/bin/podman login -u {{ rhel_login }} -p {{ rhel_pass }} registry.redhat.io"
       args:
         creates: /run/containers/0/auth.json
@@ -77,9 +78,10 @@
         group: "{{ item }}"
       with_items:
         - root
-        - gonoph
+        - "{{ ansible_user }}"
 
     - name: copy files to server
+      become: false
       synchronize:
         src: ./files/
         dest: ~/
@@ -87,7 +89,7 @@
         times: true
 
     - name: have podman pull down image
-      command: "/usr/bin/podman pull registry.redhat.io/rhel8-beta/rhel-init:latest"
+      command: "/usr/bin/podman pull registry.redhat.io/ubi8/ubi-init:latest"
 
     - name: create base image
       become: false

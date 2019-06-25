@@ -1,3 +1,4 @@
 group_vars/ovirt/99-enc.yml
+group_vars/aws_ec2/99-enc.yml
 *~
 *.retry

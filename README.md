@@ -8,9 +8,9 @@ This set of demo and ansible scripts:
 ## Demo steps
 
 1. Demo1: Show cockpit
-    * https://demo1.virt.gonoph.net:9090/
+    * https://demo1.aws.gonoph.net:9090/
 2. Demo1: Show composer
-    * https://demo1.virt.gonoph.net:9090/
+    * https://demo1.aws.gonoph.net:9090/
 3. Demo1: Show appstream and baseos
     * ```bash
       dnf module list mysql
@@ -25,8 +25,8 @@ This set of demo and ansible scripts:
     * ```bash
        cd ~/demo-container && make
        tmux
-       podman run --rm -it --name v10 localhost/test:10 # session 1
-       podman run --rm -it --name v9 localhost/test:9   # session 2
+       podman run --rm -it --name v10 -P localhost/test:10 # session 1
+       podman run --rm -it --name v9 -P localhost/test:9   # session 2
        podman exec -it v10 ps auxw                      # session 3
        podman exec -it v9 ps auxw                       # session 3
        ```
